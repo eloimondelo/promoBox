@@ -109,10 +109,72 @@ var PBlib = (function () {
         },
 
         loadSprite: function (src, callback) {
+            const extensionType = PBlib.checkExtension(src)
             var sprite = new Image();
-            sprite.onload = callback;
-            sprite.src = src;
+            if (extensionType != "img") {
+                // let genImagery = PBlib.showImageAt(0, src);
+                // console.log(genImagery);
+                sprite = document.createElement('video')
+                sprite.src = src;
+                callback();
+            } else {
+                sprite.onload = callback;
+                sprite.src = src;
+            }
         },
+        // Custom functions getVideoImage || showImageAt || checkExtension
+        checkExtension: function (sourceUrl) {
+            const types = new Map([["jpg", "img"], ["gif", "img"], ["mp4", "video"], ["3gp", "video"]])
+            const url = new URL(sourceUrl)
+            const extension = url.pathname.split(".")[1]
+            return types.get(extension);
+        },
+        getVideoImage: function (path, secs, callback) {
+            var me = this, video = document.createElement('video');
+            video.onloadedmetadata = function () {
+                if ('function' === typeof secs) {
+                    secs = secs(this.duration);
+                }
+                this.currentTime = Math.min(Math.max(0, (secs < 0 ? this.duration : 0) + secs), this.duration);
+            };
+            video.onseeked = function (e) {
+                var canvas = document.createElement('canvas');
+                canvas.height = video.videoHeight;
+                canvas.width = video.videoWidth;
+                var ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                var img = new Image();
+                img.crossOrigin = "anonymous";
+                img.src = canvas.toDataURL();
+                callback.call(me, img, this.currentTime, e);
+            };
+            video.onerror = function (e) {
+                callback.call(me, undefined, undefined, e);
+            };
+            video.src = path;
+        },
+        showImageAt: function (secs, sourceUrl) {
+            var duration;
+            PBlib.getVideoImage(
+                sourceUrl,
+                function (totalTime) {
+                    duration = totalTime;
+                    return secs;
+                },
+                function (img, secs, event) {
+                    if (event.type == 'seeked') {
+                        var li = document.createElement('li');
+                        li.innerHTML += '<b>Frame at second ' + secs + ':</b><br />';
+                        li.appendChild(img);
+                        document.getElementById('olFrames').appendChild(li);
+                        if (duration >= ++secs) {
+                            showImageAt(secs);
+                        };
+                    }
+                }
+            );
+        },
+        //
 
         isArray: function (obj) {
             return Object.prototype.toString.call(obj) === '[object Array]';
@@ -175,8 +237,10 @@ var promoBox = function (o) {
             var styles = [
                 '#promoContainer { opacity: 0; position: fixed; width: 100%; height: 100%; text-align: center; top: 0; left: 0; z-index: 9991; pointer-events: none; }',
                 '#promoOverlay { position: fixed; width: 100%; height: 100%; top: 0; left: 0; zoom: 1; z-index: 9990; background: #000; background: rgba(0, 0, 0, 0.6); -ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=60)"; filter: alpha(opacity=60); pointer-events: all; }',
-                '#promoContent { position: relative; display: inline-block; top: 10%; max-width: 80%; height: auto; z-index: 9992; pointer-events: all; }',
-                '#promoImage { height: auto; width: auto; max-width: 100%; max-height: 75%; box-sizing: border-box; display: block; border: 8px solid #fff; }',
+                //'#promoContent { position: relative; display: inline-block; top: 10%; max-width: 80%; height: auto; z-index: 9992; pointer-events: all; }',
+				'#promoContent { position: relative; display: inline-block;width: 100%; height: 100%; z-index: 9992; pointer-events: all; }',
+                // '#promoImage { height: auto; width: auto; max-width: 100%; max-height: 75%; box-sizing: border-box; display: block; border: 8px solid #fff; }',
+				'#promoImage { margin:auto; height: 100%; width: 100%; max-width: 100%; max-height: 100%; box-sizing: border-box; display: block; }',
                 '#promoClose { position: absolute; top: 0; right: 0; display: block; line-height: 16px; text-align: right; padding: 24px 28px; color: #000; z-index: 9992; font-family: sans-serif; font-size: 17px; opacity: 0.6; transition: 0.1s all; text-decoration: none; }',
                 '#promoClose:hover { opacity: 1; cursor: pointer; }',
                 '#promoButtons { position: absolute; bottom: 0; width: 100%; padding: 24px 0; }',
@@ -218,7 +282,7 @@ var promoBox = function (o) {
                 }
             }
 
-            PB.styles = PBlib.makeElement('style', {id: 'promoStyle', type: 'text/css'});
+            PB.styles = PBlib.makeElement('style', { id: 'promoStyle', type: 'text/css' });
 
             if (PB.styles.styleSheet) {
                 PB.styles.styleSheet.cssText = styles;
@@ -346,13 +410,18 @@ var promoBox = function (o) {
             var i = 0;
 
             this.promo = {
-                overlay: PBlib.makeElement('div', {id: 'promoOverlay'}),
-                container: PBlib.makeElement('div', {id: 'promoContainer'}),
-                content: PBlib.makeElement('div', {id: 'promoContent'}),
-                image: PBlib.makeElement('img', {id: 'promoImage', src: o.imagePath}),
-                close: PBlib.makeElement('a', {id: 'promoClose', href: '#'}, o.closeButtonText || '×'),
-                buttons: PBlib.makeElement('div', {id: 'promoButtons'})
+                overlay: PBlib.makeElement('div', { id: 'promoOverlay' }),
+                container: PBlib.makeElement('div', { id: 'promoContainer' }),
+                content: PBlib.makeElement('div', { id: 'promoContent' }),
+                image: PBlib.makeElement('img', { id: 'promoImage', src: o.imagePath }),
+                close: PBlib.makeElement('a', { id: 'promoClose', href: '#' }, o.closeButtonText || '×'),
+                buttons: PBlib.makeElement('div', { id: 'promoButtons' })
             };
+
+            if (PBlib.checkExtension(o.imagePath) != 'img') {
+                this.promo.image = PBlib.makeElement('video', { id: 'promoImage', src: o.imagePath, autoplay: true, loop: true, controls:false, muted: true });
+            }
+
 
             if (o.interstitialDuration) {
 
@@ -360,7 +429,7 @@ var promoBox = function (o) {
 
                 o.interstitialText = o.interstitialText.replace('%s', this.promo.interstitialCounter);
 
-                this.promo.interstitialText = PBlib.makeElement('p', {id: 'interstitialText'}, '&nbsp;' + o.interstitialText);
+                this.promo.interstitialText = PBlib.makeElement('p', { id: 'interstitialText' }, '&nbsp;' + o.interstitialText);
                 this.promo.interstitialSkipText = PBlib.makeElement('a', {
                     id: 'interstitialSkipText',
                     href: '#'
@@ -373,7 +442,7 @@ var promoBox = function (o) {
             }
 
             if (o.link) {
-                this.promo.link = PBlib.makeElement('a', {id: 'promoLink', href: o.link, target: o.target});
+                this.promo.link = PBlib.makeElement('a', { id: 'promoLink', href: o.link, target: o.target });
                 this.promo.content.appendChild(this.promo.link);
                 this.promo.link.appendChild(this.promo.image);
             } else {
