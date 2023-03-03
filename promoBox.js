@@ -124,7 +124,7 @@ var PBlib = (function () {
         },
         // Custom functions getVideoImage || showImageAt || checkExtension
         checkExtension: function (sourceUrl) {
-            const types = new Map([["jpg", "img"], ["gif", "img"], ["mp4", "video"], ["3gp", "video"]])
+            const types = new Map([["jpg", "img"], ["jpeg", "img"], ["webp", "img"], ["png", "img"], ["gif", "img"], ["mp4", "video"], ["3gp", "video"], ["mov", "video"], ["webm", "video"]])
             const url = new URL(sourceUrl)
             const extension = url.pathname.split(".")[1]
             return types.get(extension);
@@ -481,6 +481,13 @@ var promoBox = function (o) {
             this.promo.container.appendChild(this.promo.content);
 
             body.appendChild(this.promo.container);
+			const contentElement = document.getElementById(this.promo.image.id);
+				if (contentElement.tagName == 'VIDEO') {
+					contentElement.muted = true
+					contentElement.play();
+				}
+			
+			
         },
 
         addListeners: function () {
@@ -625,6 +632,7 @@ var promoBox = function (o) {
 
     if (PB.init()) {
         PBlib.loadSprite(o.imagePath, function () {
+            console.log("Entered callback of loadSprite")
             window.promoBoxInstanceID = clearTimeout(window.promoBoxInstanceID) || setTimeout(function () {
                 PB.startPromo();
             }, o.loadDelay * 1000);
